@@ -2,7 +2,7 @@ library(shiny)
 library(tidyverse)
 library(ggplot2)
 
-data <- read.csv("/Users/lucadoll/Desktop/WORK/DRC/ANNUALIZED/filteredcountries5years.csv")
+data <- read.csv("path_to_the_file")
 
 data_long <- data %>%
   pivot_longer(cols = starts_with("I") | starts_with("P") | "ACCESS",
