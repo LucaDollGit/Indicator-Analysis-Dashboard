@@ -1,0 +1,69 @@
+library(shiny)
+library(tidyverse)
+library(ggplot2)
+
+data <- read.csv("/Users/lucadoll/Desktop/WORK/DRC/ANNUALIZED/filteredcountries5years.csv")
+
+data_long <- data %>%
+  pivot_longer(cols = starts_with("I") | starts_with("P") | "ACCESS",
+               names_to = "Indicator",
+               values_to = "Value") %>%
+  drop_na()
+
+ui <- fluidPage(
+  titlePanel("Indicator Analysis Dashboard"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("indicator", "Select an Indicator", 
+                  choices = c("I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "P1", "P2", "P3", "ACCESS"))
+    ),
+    mainPanel(
+      plotOutput("changePlot"),
+      plotOutput("stdDevPlot")
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$changePlot <- renderPlot({
+    changes <- data_long %>%
+      group_by(Country, Indicator) %>%
+      summarize(AbsoluteChange = abs(max(Value, na.rm = TRUE) - min(Value, na.rm = TRUE)),
+                .groups = 'drop') 
+
+    top_countries <- changes %>%
+      filter(Indicator == input$indicator) %>%
+      arrange(desc(AbsoluteChange)) %>%
+      slice_max(order_by = AbsoluteChange, n = 5) %>%
+      pull(Country)
+
+    filtered_data <- data_long %>%
+      filter(Country %in% top_countries, Indicator == input$indicator)
+
+    ggplot(filtered_data, aes(x = Year, y = Value, group = Country, color = Country)) +
+      geom_line() +
+      theme_minimal() +
+      labs(title = paste("Top 5 Countries with Most Change in", input$indicator),
+           x = "Year",
+           y = NULL,
+           color = "Country")
+  })
+
+  output$stdDevPlot <- renderPlot({
+    std_dev_data <- data_long %>%
+      filter(Indicator == input$indicator) %>%
+      group_by(Country) %>%
+      summarize(StdDev = sd(Value, na.rm = TRUE),
+                .groups = 'drop')
+
+    ggplot(std_dev_data, aes(x = reorder(Country, StdDev), y = StdDev, fill = Country)) +
+      geom_bar(stat = "identity") +
+      coord_flip() +
+      theme_minimal() +
+      labs(title = paste("Standard Deviation of", input$indicator),
+           x = NULL,
+           y = "Standard Deviation")
+  })
+}
+
+shinyApp(ui, server)
